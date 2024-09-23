@@ -1,20 +1,70 @@
-﻿// TCPNetterCpp.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
-//
+﻿#include <iostream>
+#include <string>
+#include <boost/asio.hpp>
+#include <nlohmann/json.hpp>
 
-#include <iostream>
+using boost::asio::ip::tcp;
+using json = nlohmann::json;
 
-int main()
-{
-    std::cout << "Hello World!\n";
+class TCPClient {
+public:
+    TCPClient(const std::string& host, const std::string& port)
+        : io_context_(), socket_(io_context_) {
+        tcp::resolver resolver(io_context_);
+        boost::asio::connect(socket_, resolver.resolve(host, port));
+    }
+
+    void sendMessage(const std::string& id, const std::string& messageType,
+        const std::string& deviceName, const std::string& message,
+        const std::string& command, const std::string& target) {
+
+        // 创建 JSON 消息
+        json j;
+        j["Id"] = id;
+        j["MessageType"] = messageType;
+        j["DeviceName"] = deviceName;
+        j["Message"] = message;
+        j["Command"] = command;
+        j["Target"] = target;
+
+        // 转换为字符串并发送
+        std::string request = j.dump() + "\n"; // 添加换行符以便服务器识别消息结束
+        boost::asio::write(socket_, boost::asio::buffer(request));
+    }
+
+    std::string receiveMessage() {
+        boost::asio::streambuf buffer;
+        boost::asio::read_until(socket_, buffer, "\n"); // 读取直到换行符
+        std::istream input(&buffer);
+        std::string response;
+        std::getline(input, response);
+        return response;
+    }
+
+    ~TCPClient() {
+        socket_.close();
+    }
+
+private:
+    boost::asio::io_context io_context_;
+    tcp::socket socket_;
+};
+
+int main() {
+    try {
+        // 设置服务器IP和端口
+        TCPClient client("127.0.0.1", "8188");
+
+        // 发送JSON消息
+        client.sendMessage("1234", "Message", "device1", "Hello, Server!", "", "");
+
+        // 接收并打印服务器的响应
+        std::string response = client.receiveMessage();
+        std::cout << "Server response: " << response << std::endl;
+    }
+    catch (std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+
+    return 0;
 }
-
-// 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
-// 调试程序: F5 或调试 >“开始调试”菜单
-
-// 入门使用技巧: 
-//   1. 使用解决方案资源管理器窗口添加/管理文件
-//   2. 使用团队资源管理器窗口连接到源代码管理
-//   3. 使用输出窗口查看生成输出和其他消息
-//   4. 使用错误列表窗口查看错误
-//   5. 转到“项目”>“添加新项”以创建新的代码文件，或转到“项目”>“添加现有项”以将现有代码文件添加到项目
-//   6. 将来，若要再次打开此项目，请转到“文件”>“打开”>“项目”并选择 .sln 文件
