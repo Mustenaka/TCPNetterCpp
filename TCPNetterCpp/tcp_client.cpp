@@ -18,8 +18,11 @@ tcp_client::tcp_client(const std::string& host, const std::string& port,
 		"",
 		"")
 {
-	boost::asio::ip::tcp::resolver resolver(io_context_);
-	boost::asio::connect(socket_, resolver.resolve(host, port));
+	this->port_ = port;
+	this->host_ = host;
+	this->connected_ = false;
+
+	reconnect();
 }
 
 /// <summary>
@@ -54,6 +57,12 @@ void tcp_client::send_message(const std::string& message)
 /// <param name="message">消息</param>
 void tcp_client::send_message_with_type(const std::string& message_type, const std::string& message)
 {
+	// 如果是断开链接的状态下，则重新链接
+	if (!is_connected())
+	{
+		reconnect();
+	}
+
 	// 如果是Message类型的信息，那么就保存到model中
 	if (message_type == "Message")
 	{
@@ -62,7 +71,8 @@ void tcp_client::send_message_with_type(const std::string& message_type, const s
 
 	nlohmann::json j;
 
-	try {
+	try 
+	{
 		// 检查是否是有效的 UTF-8 编码
 		if (!tcp_client::is_valid_utf8(message)) {
 			std::cerr << "Error: Invalid UTF-8 message." << std::endl;
@@ -79,8 +89,22 @@ void tcp_client::send_message_with_type(const std::string& message_type, const s
 		std::string request = j.dump() + "\n";
 		boost::asio::write(socket_, boost::asio::buffer(request));
 	}
-	catch (const nlohmann::json::exception& e) {
+	catch (const nlohmann::json::exception& e) 
+	{
 		std::cerr << "JSON error: " << e.what() << '\n';
+	}
+	catch (const boost::system::system_error& e) 
+	{
+		std::cerr << "Send failed: " << e.what() << '\n';
+
+		// 检查特定的错误类型
+		if (e.code() == boost::asio::error::host_not_found ||
+			e.code() == boost::asio::error::connection_refused ||
+			e.code() == boost::asio::error::network_unreachable) {
+			// 这些错误可以尝试重连
+			connected_ = false;
+			reconnect();
+		}
 	}
 }
 
@@ -123,8 +147,53 @@ message_model tcp_client::receive_message()
 	{
 		std::cerr << "JSON error: " << e.what() << '\n';
 	}
+	catch (const boost::system::system_error& e) 
+	{
+		std::cerr << "Receive failed: " << e.what() << '\n';
+
+		// 检查特定的错误类型
+		if (e.code() == boost::asio::error::host_not_found ||
+			e.code() == boost::asio::error::connection_refused ||
+			e.code() == boost::asio::error::network_unreachable) {
+			// 这些错误可以尝试重连
+			connected_ = false;
+			reconnect();
+		}
+	}
 
 	return model_;
+}
+
+/// <summary>
+/// 判断当前链接状态
+/// </summary>
+bool tcp_client::is_connected() const
+{
+	return this->connected_;
+}
+
+/// <summary>
+/// 重新链接服务器
+/// </summary>
+void tcp_client::reconnect()
+{
+	boost::asio::ip::tcp::resolver resolver(io_context_);
+	const boost::asio::ip::tcp::resolver::results_type endpoints = resolver.resolve(host_, port_);
+
+	while (true) {
+		try {
+			boost::asio::connect(socket_, endpoints);
+			connected_ = true;
+			std::cout << "Connected to server: " << host_ << ":" << port_ << '\n';
+			break;  // 连接成功，退出循环
+		}
+		catch (const boost::system::system_error& e) {
+			connected_ = false;
+			std::cerr << "Connection failed: " << e.what() << '\n';
+			std::cout << "Retrying connection in 3 seconds..." << '\n';
+			std::this_thread::sleep_for(std::chrono::seconds(3));  // 等待3秒后重试
+		}
+	}
 }
 
 bool tcp_client::is_valid_utf8(const std::string& str)
@@ -135,7 +204,8 @@ bool tcp_client::is_valid_utf8(const std::string& str)
 		auto receive = converter.from_bytes(str);
 		return true;
 	}
-	catch (...) {
+	catch (...)
+	{
 		return false;
 	}
 }

@@ -33,32 +33,66 @@ message_model tcp_client_wrapper::get_model()
 
 void tcp_client_wrapper::write_thread_func()
 {
-    while (is_running_) {
-        std::unique_lock<std::mutex> lock(write_mutex_);
-        write_cv_.wait(lock, [this] { return !write_queue_.empty() || !is_running_; });
+    try
+    {
+        while (is_running_)
+        {
+            std::unique_lock<std::mutex> lock(write_mutex_);
+            write_cv_.wait(lock, [this] { return !write_queue_.empty() || !is_running_; });
 
-        while (!write_queue_.empty()) {
-            std::string message = write_queue_.front();
-            write_queue_.pop();
-            lock.unlock();
+            while (!write_queue_.empty()) {
+                std::string message = write_queue_.front();
+                write_queue_.pop();
+                lock.unlock();
 
-            client_.send_message(message);
+                client_.send_message(message);
 
-            lock.lock();
+                lock.lock();
+            }
         }
     }
+	catch(boost::exception& e)
+	{
+		std::cout << "boost exception: " << '\n';
+        client_.reconnect();
+	}
+	catch (std::exception& e)
+	{
+		std::cout << "std exception: " << e.what() << '\n';
+	}
+	catch (...)
+	{
+		std::cout << "unknown exception" << '\n';
+	}
 }
 
 void tcp_client_wrapper::read_thread_func()
 {
-    while (is_running_) {
-        message_model model = client_.receive_message();
-        std::lock_guard<std::mutex> lock(read_mutex_);
-        read_queue_.push(model.get_message());
-        read_cv_.notify_one();
+    try
+    {
+        while (is_running_) {
+            message_model model = client_.receive_message();
+            std::lock_guard<std::mutex> lock(read_mutex_);
+            read_queue_.push(model.get_message());
+            read_cv_.notify_one();
 
-        std::cout << "receive data, now model is: ------- \n" << model << "\n";
-    }
+            std::cout << "receive data, now model is: ------- \n" << model << "\n";
+        }
+	}
+	catch (boost::exception& e)
+	{
+		std::cout << "boost exception: " << '\n';
+        client_.reconnect();
+	}
+	catch (std::exception& e)
+	{
+		std::cout << "std exception: " << e.what() << '\n';
+	}
+	catch (...)
+	{
+		std::cout << "unknown exception" << '\n';
+	}
+
 }
 
 void tcp_client_wrapper::heartbeat_thread_func()
