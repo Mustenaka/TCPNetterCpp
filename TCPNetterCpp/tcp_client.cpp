@@ -63,6 +63,12 @@ void tcp_client::send_message_with_type(const std::string& message_type, const s
 	nlohmann::json j;
 
 	try {
+		// 检查是否是有效的 UTF-8 编码
+		if (!tcp_client::is_valid_utf8(message)) {
+			std::cerr << "Error: Invalid UTF-8 message." << std::endl;
+			return; // 不发送无效的消息
+		}
+
 		j["Id"] = model_.get_id();
 		j["MessageType"] = message_type;
 		j["DeviceName"] = model_.get_device_name();
@@ -74,7 +80,7 @@ void tcp_client::send_message_with_type(const std::string& message_type, const s
 		boost::asio::write(socket_, boost::asio::buffer(request));
 	}
 	catch (const nlohmann::json::exception& e) {
-		std::cerr << "JSON error: " << e.what() << std::endl;
+		std::cerr << "JSON error: " << e.what() << '\n';
 	}
 }
 
@@ -90,27 +96,52 @@ message_model tcp_client::receive_message()
 	std::string response;
 	std::getline(input, response);
 
-	nlohmann::json j = nlohmann::json::parse(response);
-
-	// 只有是Message类型的信息才会进行保存
-	if (j["Message"] == "Message")
+	try
 	{
-		model_.set_id(j["Id"]);
-		model_.set_message_type(j["MessageType"]);
-		model_.set_device_name(j["DeviceName"]);
-		model_.set_message(j["Message"]);
-		model_.set_command(j["Command"]);
-		model_.set_target(j["Target"]);
+		// 检查是否是有效的 UTF-8 编码
+		if (!tcp_client::is_valid_utf8(response)) {
+			std::cerr << "Error: Invalid UTF-8 message." << std::endl;
+			return model_; // 不发送无效的消息
+		}
 
-		this->send_message_with_type("Callback", j["Message"]);
+		nlohmann::json j = nlohmann::json::parse(response);
+
+		// 只有是Message类型的信息才会进行保存
+		if (j["MessageType"] == "Message")
+		{
+			model_.set_id(j["Id"]);
+			model_.set_message(j["Message"]);
+			model_.set_command(j["Command"]);
+			model_.set_target(j["Target"]);
+
+			this->send_message_with_type("Callback", j["Message"]);
+		}
+
+		std::cout << "Received message: " << response << '\n';
 	}
-
-	std::cout << "Received message: " << response << std::endl;
+	catch (const nlohmann::json::exception& e)
+	{
+		std::cerr << "JSON error: " << e.what() << '\n';
+	}
 
 	return model_;
 }
 
-std::string wstring_to_string(const std::wstring& wstr) {
+bool tcp_client::is_valid_utf8(const std::string& str)
+{
+	// 使用 std::wstring_convert 进行编码检查
+	try {
+		std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+		auto receive = converter.from_bytes(str);
+		return true;
+	}
+	catch (...) {
+		return false;
+	}
+}
+
+std::wstring tcp_client::string_convert_utf8(const std::string& str)
+{
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-	return converter.to_bytes(wstr);
+	return converter.from_bytes(str);
 }

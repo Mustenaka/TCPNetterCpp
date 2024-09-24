@@ -3,9 +3,14 @@
 #include <boost/asio.hpp>
 #include <nlohmann/json.hpp>
 #include <codecvt>
+#include <locale>
 
 #include "message_model.h"
 
+/// <summary>
+/// @brief
+///		tcp client
+/// </summary>
 class tcp_client
 {
 public:
@@ -22,4 +27,7 @@ private:
 	boost::asio::io_context io_context_;
 	boost::asio::ip::tcp::socket socket_;
 	message_model model_;
+
+	static bool is_valid_utf8(const std::string& str);
+	static std::wstring string_convert_utf8(const std::string& str);
 };
