@@ -8,8 +8,7 @@ public:
                  std::string message, std::string command, std::string target)
         : id_(std::move(id)), message_type_(std::move(message_type)), device_name_(std::move(device_name)),
         message_(std::move(message)), command_(std::move(command)), target_(std::move(target))
-    {
-}
+    {}
 
     std::string get_id() const { return id_; }
     std::string get_message_type() const { return message_type_; }
