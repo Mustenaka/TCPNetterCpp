@@ -1,7 +1,5 @@
 ﻿#include "tcp_client.h"
 
-#include <iostream>
-
 /// <summary>
 /// 构造函数，创建tcp客户端
 /// </summary>
@@ -196,6 +194,9 @@ void tcp_client::reconnect()
 	}
 }
 
+/// <summary>
+/// 检查数据是否是utf-8
+/// </summary>
 bool tcp_client::is_valid_utf8(const std::string& str)
 {
 	// 使用 std::wstring_convert 进行编码检查
@@ -210,6 +211,9 @@ bool tcp_client::is_valid_utf8(const std::string& str)
 	}
 }
 
+/// <summary>
+/// string字符串转换wstring字符串（utf-8）支持
+/// </summary>
 std::wstring tcp_client::string_convert_utf8(const std::string& str)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;

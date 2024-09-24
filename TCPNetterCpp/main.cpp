@@ -1,6 +1,5 @@
 ﻿#include "tcp_client_wrapper.h"
 #include <iostream>
-#include <thread>
 #include <fcntl.h>
 
 int main() {
@@ -12,9 +11,10 @@ int main() {
 	const std::string port = "8188";
 	const std::string device_name = "DeviceX";
 	const std::string initial_message = "Initial Connection Message";
+	constexpr long long heartbeat_interval = 5;
 
 	// 创建 TCP 客户端包装类实例
-	tcp_client_wrapper client(host, port, device_name, initial_message);
+	tcp_client_wrapper client(host, port, device_name, initial_message, heartbeat_interval);
 
 	// 控制台输入处理
 	while (true) {

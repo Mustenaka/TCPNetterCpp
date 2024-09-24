@@ -3,14 +3,11 @@
 #include <boost/asio.hpp>
 #include <nlohmann/json.hpp>
 #include <codecvt>
+#include <iostream>
 #include <locale>
 
 #include "message_model.h"
 
-/// <summary>
-/// @brief
-///		tcp client
-/// </summary>
 class tcp_client
 {
 public:

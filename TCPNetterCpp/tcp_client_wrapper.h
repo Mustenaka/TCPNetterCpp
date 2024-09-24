@@ -7,11 +7,10 @@
 #include <mutex>
 #include <queue>
 #include <condition_variable>
-#include <iostream>
 
 class tcp_client_wrapper {
 public:
-    tcp_client_wrapper(const std::string& host, const std::string& port, const std::string& device_name, const std::string& message);
+    tcp_client_wrapper(const std::string& host, const std::string& port, const std::string& device_name, const std::string& message, const long long heartbeat_interval);
     ~tcp_client_wrapper();
 
     void send_message(const std::string& message);
@@ -20,7 +19,7 @@ public:
 private:
     void write_thread_func();
     void read_thread_func();
-    void heartbeat_thread_func();
+    void heartbeat_thread_func(const long long interval);
 
     tcp_client client_;
     std::thread write_thread_;
@@ -35,4 +34,6 @@ private:
     std::mutex read_mutex_;
     std::queue<std::string> read_queue_;
     std::condition_variable read_cv_;
+
+    long long heartbeat_interval_;
 };
